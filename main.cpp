@@ -6,11 +6,15 @@
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
+#include <string>
 // #include <opencv2/imgproc.hpp>
 // #include <opencv2/highgui/highgui.hpp>
 #define IM_HEIGHT 1000
 #define IM_WIDTH 1000
 #define N_ITER 256
+#define FRACTAL_JULIA 2
+#define FRACTAL_MANDELBROT 1
+#define FRACTAL_BURNINGSHIP 3
 
 // using Eigen::ArrayXXd;
 // using namespace Eigen;
@@ -164,13 +168,71 @@ Eigen::ArrayXXf julia(const double& c_real, const double& c_imag, const double& 
   return julia(c_real, c_imag, xmin, xmax, ymin, ymax, res);
 }
 
+class EscapeTimeFractal {
+  public:
+    int formula;
+    double xmin, xmax, ymin, ymax, res;
+    int width, height;
+    Eigen::VectorXd xs, ys;
+    Eigen::ArrayXXi escapetime;
+    EscapeTimeFractal(int f, double xm, double xx, double ym, double yx, double r);
+    Eigen::ArrayXXf compute(const int& n_iter);
+};
+
+EscapeTimeFractal::EscapeTimeFractal(int f, double xm, double xx, double ym, double yx, double r){
+  formula=f;
+  xmin=xm;
+  xmax=xx;
+  ymin=ym;
+  ymax=yx;
+  res=r;
+  width = (int)((xmax-xmin)*res);
+  height = (int)((ymax-ymin)*res);
+  Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
+  Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
+}
+
+Eigen::ArrayXXf EscapeTimeFractal::compute(const int& n_iter){
+  for(int i=0; i<width; i++){
+    for(int j=0; j<height; j++){
+      int n=1;
+      float a=0, b=0;
+      float atmp;
+      if(formula==FRACTAL_MANDELBROT){
+        while(a*a+b*b<4 && n<=n_iter){
+          atmp = a*a - b*b + xs(i);
+          b = (a+a)*b + ys(j);
+          a = atmp;
+          n++;
+        }
+      } else if(formula==FRACTAL_BURNINGSHIP){
+        while(a*a+b*b<4 && n<=n_iter){
+          a = abs(a);
+          b = abs(b);
+          atmp = a*a - b*b + xs(i);
+          b = (a+a)*b + ys(j);
+          a = atmp;
+          n++;
+        }
+      } // else Julia, but that needs additional arguments (c_real and c_imag)
+
+      escapetime(j,i) = n>N_ITER ? 0 : n;
+    }
+  }
+  Eigen::ArrayXXf et_f = escapetime.cast<float>();
+  return et_f/N_ITER;
+}
+
 int main()
 {
   Eigen::setNbThreads(8);
 
   // Eigen::ArrayXXf escapetime_normed = mandelbrot_cv()/N_ITER;
   // Eigen::ArrayXXf escapetime_normed = julia(-0.4, 0.6, -2, 2, -2, 2, 300.0);
-  Eigen::ArrayXXf escapetime_normed = burning_ship(-2, 2, -2, 2, 300.0);
+  // Eigen::ArrayXXf escapetime_normed = burning_ship(-2, 2, -2, 2, 300.0);
+
+  EscapeTimeFractal frac = EscapeTimeFractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
+  Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER);
 
   cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
   cv::Mat image;
