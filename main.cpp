@@ -8,9 +8,9 @@
 #include <opencv2/core/eigen.hpp>
 // #include <opencv2/imgproc.hpp>
 // #include <opencv2/highgui/highgui.hpp>
-#define IM_HEIGHT 601
-#define IM_WIDTH 601
-#define N_ITER 60
+#define IM_HEIGHT 1000
+#define IM_WIDTH 1000
+#define N_ITER 256
 
 // using Eigen::ArrayXXd;
 // using namespace Eigen;
@@ -50,9 +50,8 @@ void meshgrid(const Eigen::Matrix<Scalar, 1, -1>& x,
   meshgrid(xt, yt, X, Y);
 }
 
-Eigen::ArrayXXi mandelbrot(const Eigen::ArrayXXcf& complex_coords){
+Eigen::ArrayXXf mandelbrot(const Eigen::ArrayXXcf& complex_coords){
   Eigen::ArrayXXcf z_arr(IM_HEIGHT, IM_WIDTH);  //the array of z values for each coordinate
-  Eigen::ArrayXXi mask (IM_HEIGHT, IM_WIDTH); //all zeros
   Eigen::ArrayXXi all_i (IM_HEIGHT, IM_WIDTH);
   Eigen::ArrayXXcf other(IM_HEIGHT, IM_WIDTH);  //temp array to hold output of iteration
   Eigen::ArrayXXi escapetime(IM_HEIGHT, IM_WIDTH); //array to store the number of iterations it took each coord to escape (|z|>2)
@@ -66,22 +65,59 @@ Eigen::ArrayXXi mandelbrot(const Eigen::ArrayXXcf& complex_coords){
     escapetime = ((z_arr.abs() >= 2)&&(escapetime == 0)).select(all_i, escapetime);
     z_arr = other;
   }
-  return escapetime;
+  return escapetime.cast<float>();
+}
+
+Eigen::ArrayXXf mandelbrot_cv(){
+  Eigen::VectorXf xs = Eigen::VectorXf::LinSpaced(IM_WIDTH, -2, 2); //x coordinates in order (for meshgrid)
+  Eigen::VectorXf ys = Eigen::VectorXf::LinSpaced(IM_HEIGHT, -2, 2.0);  //y coordinates in order (for meshgrid)
+  Eigen::ArrayXXi escapetime(IM_HEIGHT, IM_WIDTH); //array to store the number of iterations it took each coord to escape (|z|>2)
+  for(int i=0; i<IM_WIDTH; i++){
+    for(int j=0; j<IM_HEIGHT; j++){
+      float a=0, b=0;
+      float atmp;
+      int c=1;
+      while(a*a+b*b<4 && c<=N_ITER){
+        atmp = a*a - b*b + xs(i);
+        b = (a+a)*b + ys(j);
+        a = atmp;
+        c++;
+      }
+      escapetime(j,i) = c>N_ITER ? 0 : c;
+    }
+  }
+  return escapetime.cast<float>();
+}
+
+Eigen::ArrayXXf julia(const double& c_real, const double& c_imag){
+  double xmin=-2, xmax=2;
+  double ymin=-2, ymax=2;
+  Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(IM_WIDTH, xmin, xmax); //x coordinates in order (for meshgrid)
+  Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(IM_HEIGHT, xmin, xmax);  //y coordinates in order (for meshgrid)
+  Eigen::ArrayXXi escapetime(IM_HEIGHT, IM_WIDTH); //array to store the number of iterations it took each coord to escape (|z|>2)
+  for(int i=0; i<IM_WIDTH; i++){
+    for(int j=0; j<IM_HEIGHT; j++){
+      float a=xs(i);
+      float b=ys(j);
+      float atmp;
+      int n=1;
+      while(a*a+b*b<4 && n<=N_ITER){
+        atmp = a*a - b*b + c_real;
+        b = (a+a)*b + c_imag;
+        a = atmp;
+        n++;
+      }
+      escapetime(j,i) = n>N_ITER ? 0 : n;
+    }
+  }
+  return escapetime.cast<float>();
 }
 
 int main()
 {
-  Eigen::VectorXf xs = Eigen::VectorXf::LinSpaced(IM_WIDTH, -2.1, 2.1); //x coordinates in order (for meshgrid)
-  Eigen::VectorXf ys = Eigen::VectorXf::LinSpaced(IM_HEIGHT, 2.1, -2.1);  //y coordinates in order (for meshgrid)
-  Eigen::MatrixXf x_coords(IM_HEIGHT, IM_WIDTH), y_coords(IM_HEIGHT, IM_WIDTH);  //x and y coordinates of each pixel
-  meshgrid(xs, ys, x_coords, y_coords);
-  std::complex<float> I(0.0f, 1.0f);
-  Eigen::ArrayXXcf complex_coords = x_coords.cast<std::complex<float> >()+ I*y_coords.cast<std::complex<float> >(); //coords defined as complex numbers
-  Eigen::ArrayXXcf twos = Eigen::ArrayXXcf::Constant(IM_HEIGHT, IM_WIDTH, 2.5);
-  
-  // std::cout << escapetime;
-  Eigen::ArrayXXi escapetime = mandelbrot(complex_coords);
-  Eigen::ArrayXXf escapetime_normed = escapetime.cast<float>()/N_ITER;
+  Eigen::setNbThreads(8);
+  // Eigen::ArrayXXf escapetime_normed = mandelbrot_cv()/N_ITER;
+  Eigen::ArrayXXf escapetime_normed = julia(-0.4, 0.6)/N_ITER;
   cv::Mat image;
   Eigen::MatrixXf etn(escapetime_normed);
   cv::eigen2cv(etn, image);
