@@ -188,11 +188,16 @@ EscapeTimeFractal::EscapeTimeFractal(int f, double xm, double xx, double ym, dou
   res=r;
   width = (int)((xmax-xmin)*res);
   height = (int)((ymax-ymin)*res);
+  std::printf("%i %i\n", width, height);
   Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
   Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
+  std::printf("%li\n", ys.size());
 }
 
 Eigen::ArrayXXf EscapeTimeFractal::compute(const int& n_iter){
+  xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
+  ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
+   escapetime = Eigen::ArrayXXi(height, width);
   for(int i=0; i<width; i++){
     for(int j=0; j<height; j++){
       int n=1;
@@ -232,6 +237,7 @@ int main()
   // Eigen::ArrayXXf escapetime_normed = burning_ship(-2, 2, -2, 2, 300.0);
 
   EscapeTimeFractal frac = EscapeTimeFractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
+  std::printf(" in main %li\n", frac.xs.size());
   Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER);
 
   cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
