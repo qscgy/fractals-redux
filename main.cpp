@@ -89,14 +89,20 @@ Eigen::ArrayXXf mandelbrot_cv(){
   return escapetime.cast<float>();
 }
 
-Eigen::ArrayXXf julia(const double& c_real, const double& c_imag){
-  double xmin=-2, xmax=2;
-  double ymin=-2, ymax=2;
-  Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(IM_WIDTH, xmin, xmax); //x coordinates in order (for meshgrid)
-  Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(IM_HEIGHT, xmin, xmax);  //y coordinates in order (for meshgrid)
-  Eigen::ArrayXXi escapetime(IM_HEIGHT, IM_WIDTH); //array to store the number of iterations it took each coord to escape (|z|>2)
-  for(int i=0; i<IM_WIDTH; i++){
-    for(int j=0; j<IM_HEIGHT; j++){
+Eigen::ArrayXXf julia(const double& c_real, 
+                      const double& c_imag,
+                      const double& xmin,
+                      const double& xmax,
+                      const double& ymin,
+                      const double& ymax,
+                      const double& res){
+  int width = (int)((xmax-xmin)*res);
+  int height = (int)((ymax-ymin)*res);
+  Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
+  Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
+  Eigen::ArrayXXi escapetime(height, width); //array to store the number of iterations it took each coord to escape (|z|>2)
+  for(int i=0; i<width; i++){
+    for(int j=0; j<height; j++){
       float a=xs(i);
       float b=ys(j);
       float atmp;
@@ -110,18 +116,38 @@ Eigen::ArrayXXf julia(const double& c_real, const double& c_imag){
       escapetime(j,i) = n>N_ITER ? 0 : n;
     }
   }
-  return escapetime.cast<float>();
+  Eigen::ArrayXXf et_f = escapetime.cast<float>();
+  return et_f/N_ITER;
+}
+
+Eigen::ArrayXXf julia(const double& c_real, const double& c_imag){
+  double xmin=-2, xmax=2;
+  double ymin=-1, ymax=1;
+  return julia(c_real, c_imag, xmin, xmax, ymin, ymax, 300.0);
+}
+
+Eigen::ArrayXXf julia(const double& c_real, const double& c_imag, const double& res){
+  double xmin=-2, xmax=2;
+  double ymin=-1, ymax=1;
+  return julia(c_real, c_imag, xmin, xmax, ymin, ymax, res);
 }
 
 int main()
 {
   Eigen::setNbThreads(8);
+
   // Eigen::ArrayXXf escapetime_normed = mandelbrot_cv()/N_ITER;
-  Eigen::ArrayXXf escapetime_normed = julia(-0.4, 0.6)/N_ITER;
+  Eigen::ArrayXXf escapetime_normed = julia(-0.4, 0.6, -2, 2, -2, 2, 300.0);
+
+  cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
   cv::Mat image;
   Eigen::MatrixXf etn(escapetime_normed);
+  etn = etn*255;
   cv::eigen2cv(etn, image);
-  cv::imshow("Mandelbrot", image);
+  image.convertTo(image, CV_8UC1);
+  cv::Mat color_img(image);
+  cv::applyColorMap(image, color_img, cv::COLORMAP_BONE);
+  cv::imshow("Fractal", color_img);
   cv::waitKey(0);
   return 0;
 }
