@@ -6,6 +6,7 @@ set(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_C_COMPILER "/usr/local/Cellar/llvm/16.0.3/bin/clang")
 set(CMAKE_CXX_COMPILER "/usr/local/Cellar/llvm/16.0.3/bin/clang++")
+set (CMAKE_CXX_STANDARD 17)
 set(OPENMP_LIBRARIES "/usr/local/Cellar/llvm/16.0.3/lib")
 set(OPENMP_INCLUDES "/usr/local/Cellar/llvm/16.0.3/include")
 if(APPLE)

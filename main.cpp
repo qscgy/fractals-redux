@@ -2,11 +2,17 @@
 #undef __ARM_NEON
 #undef __ARM_NEON__
 #endif
+#pragma once
 #include <iostream>
+#include <fstream>
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
 #include <opencv2/core/eigen.hpp>
 #include <string>
+#include <sstream>
+#include <map>
+#include <variant>
+#include <algorithm>
 // #include <opencv2/imgproc.hpp>
 // #include <opencv2/highgui/highgui.hpp>
 #define IM_HEIGHT 1000
@@ -168,7 +174,13 @@ Eigen::ArrayXXf julia(const double& c_real, const double& c_imag, const double& 
   return julia(c_real, c_imag, xmin, xmax, ymin, ymax, res);
 }
 
+std::string toLower(std::string s){
+  std::transform(s.begin(), s.end(), s.begin(), ::tolower);
+  return s;
+}
+
 class Fractal {
+  using ConfValue=std::variant<int, double>;
   public:
     int formula;
     double xmin, xmax, ymin, ymax, res;
@@ -176,8 +188,19 @@ class Fractal {
     Eigen::VectorXd xs, ys;
     Eigen::ArrayXXi escapetime;
     Fractal(int f, double xm, double xx, double ym, double yx, double r);
+    Fractal(const std::string& s);
     Eigen::ArrayXXf compute(const int& n_iter);
+  private:
+    void otherInit();
+
 };
+
+void Fractal::otherInit(){
+  width = (int)((xmax-xmin)*res);
+  height = (int)((ymax-ymin)*res);
+  xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
+  ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax).reverse();  //y coordinates in order (for meshgrid)
+}
 
 Fractal::Fractal(int f, double xm, double xx, double ym, double yx, double r){
   formula=f;
@@ -186,12 +209,74 @@ Fractal::Fractal(int f, double xm, double xx, double ym, double yx, double r){
   ymin=ym;
   ymax=yx;
   res=r;
-  width = (int)((xmax-xmin)*res);
-  height = (int)((ymax-ymin)*res);
-  std::printf("%i %i\n", width, height);
-  xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
-  ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax).reverse();  //y coordinates in order (for meshgrid)
-  std::printf("%li\n", ys.size());
+  otherInit();
+}
+
+// create fractal from config file; argument is filename
+Fractal::Fractal(const std::string& conffile){
+  std::map<std::string, std::string> config;
+  std::ifstream cFile("fractalconf.cfg");
+
+  if (cFile.is_open())
+  {
+    std::string line;
+    while(getline(cFile, line)){
+      line.erase(std::remove_if(line.begin(), line.end(), isspace),
+                            line.end());
+      if(line[0] == '#' || line.empty())
+        continue;
+      auto delimiterPos = line.find("=");
+      std::string name = line.substr(0, delimiterPos);
+      std::string valueStr = line.substr(delimiterPos + 1);
+      // std::cout << name << " " << valueStr << '\n';
+      config.insert({name, valueStr});
+    }
+  }
+  else {
+    std::cerr << "Couldn't open config file for reading.\n";
+  }
+
+  if(config.find("formula")==config.end()){
+    std::cerr << "formula missing from config.\n";
+  } else {
+    const std::string formulaStr = config.at("formula");
+    if(toLower(formulaStr)=="mandelbrot"){
+      formula=FRACTAL_MANDELBROT;
+    } else if(toLower(formulaStr)=="julia"){
+      formula=FRACTAL_JULIA;
+    } else if(toLower(formulaStr)=="burningship"){
+      formula=FRACTAL_BURNINGSHIP;
+    } else {
+      std::cerr << "The formula " << formulaStr << " is not a valid option.\n";
+    }
+  }
+
+  if(config.find("res")==config.end()){
+    std::cerr << "res missing from config.\n";
+  } else {
+    res=std::stof(config.at("res"));
+  }
+  if(config.find("xmin")==config.end()){
+    std::cerr << "xmin missing from config.\n";
+  } else {
+    xmin=std::stof(config.at("xmin"));
+  }
+  if(config.find("xmax")==config.end()){
+    std::cerr << "xmax missing from config.\n";
+  } else {
+    xmax=std::stof(config.at("xmax"));
+  }
+    if(config.find("ymin")==config.end()){
+    std::cerr << "ymin missing from config.\n";
+  } else {
+    ymin=std::stof(config.at("ymin"));
+  }
+  if(config.find("ymax")==config.end()){
+    std::cerr << "ymax missing from config.\n";
+  } else {
+    ymax=std::stof(config.at("ymax"));
+  }
+  otherInit();
 }
 
 Eigen::ArrayXXf Fractal::compute(const int& n_iter){
@@ -226,11 +311,6 @@ Eigen::ArrayXXf Fractal::compute(const int& n_iter){
   return et_f/n_iter;
 }
 
-class BurningShipFractal : public Fractal {
-  public:
-    BurningShipFractal(double xm, double xx, double ym, double yx, double r):Fractal(FRACTAL_BURNINGSHIP,xm,xx,ym,yx,r){};
-};
-
 class JuliaSet : public Fractal {
   public:
     JuliaSet(double xm, double xx, double ym, double yx, double r):Fractal(FRACTAL_JULIA,xm,xx,ym,yx,r){};
@@ -263,7 +343,8 @@ int main()
   Eigen::setNbThreads(8);
 
   // JuliaFractal frac = JuliaFractal(-2,2,-2,2,300.0);
-  Fractal frac = Fractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
+  // Fractal frac = Fractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
+  Fractal frac=Fractal("fractalconf.cfg");
   // Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER, -0.512511498387847167, 0.521295573094847167);
   Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER);
 
