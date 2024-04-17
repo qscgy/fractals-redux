@@ -11,7 +11,7 @@
 // #include <opencv2/highgui/highgui.hpp>
 #define IM_HEIGHT 1000
 #define IM_WIDTH 1000
-#define N_ITER 256
+#define N_ITER 384
 #define FRACTAL_JULIA 2
 #define FRACTAL_MANDELBROT 1
 #define FRACTAL_BURNINGSHIP 3
@@ -168,18 +168,18 @@ Eigen::ArrayXXf julia(const double& c_real, const double& c_imag, const double& 
   return julia(c_real, c_imag, xmin, xmax, ymin, ymax, res);
 }
 
-class EscapeTimeFractal {
+class Fractal {
   public:
     int formula;
     double xmin, xmax, ymin, ymax, res;
     int width, height;
     Eigen::VectorXd xs, ys;
     Eigen::ArrayXXi escapetime;
-    EscapeTimeFractal(int f, double xm, double xx, double ym, double yx, double r);
+    Fractal(int f, double xm, double xx, double ym, double yx, double r);
     Eigen::ArrayXXf compute(const int& n_iter);
 };
 
-EscapeTimeFractal::EscapeTimeFractal(int f, double xm, double xx, double ym, double yx, double r){
+Fractal::Fractal(int f, double xm, double xx, double ym, double yx, double r){
   formula=f;
   xmin=xm;
   xmax=xx;
@@ -189,15 +189,13 @@ EscapeTimeFractal::EscapeTimeFractal(int f, double xm, double xx, double ym, dou
   width = (int)((xmax-xmin)*res);
   height = (int)((ymax-ymin)*res);
   std::printf("%i %i\n", width, height);
-  Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
-  Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
+  xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
+  ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax).reverse();  //y coordinates in order (for meshgrid)
   std::printf("%li\n", ys.size());
 }
 
-Eigen::ArrayXXf EscapeTimeFractal::compute(const int& n_iter){
-  xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
-  ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
-   escapetime = Eigen::ArrayXXi(height, width);
+Eigen::ArrayXXf Fractal::compute(const int& n_iter){
+  escapetime = Eigen::ArrayXXi(height, width);
   for(int i=0; i<width; i++){
     for(int j=0; j<height; j++){
       int n=1;
@@ -211,33 +209,62 @@ Eigen::ArrayXXf EscapeTimeFractal::compute(const int& n_iter){
           n++;
         }
       } else if(formula==FRACTAL_BURNINGSHIP){
+        a=xs(i);
+        b=ys(j);
         while(a*a+b*b<4 && n<=n_iter){
-          a = abs(a);
-          b = abs(b);
-          atmp = a*a - b*b + xs(i);
-          b = (a+a)*b + ys(j);
+          atmp = a*a - b*b - xs(i);
+          b = abs(2.0*a*b) - ys(j);
           a = atmp;
           n++;
         }
       } // else Julia, but that needs additional arguments (c_real and c_imag)
 
-      escapetime(j,i) = n>N_ITER ? 0 : n;
+      escapetime(j,i) = n>n_iter ? 0 : n;
     }
   }
   Eigen::ArrayXXf et_f = escapetime.cast<float>();
-  return et_f/N_ITER;
+  return et_f/n_iter;
 }
+
+class BurningShipFractal : public Fractal {
+  public:
+    BurningShipFractal(double xm, double xx, double ym, double yx, double r):Fractal(FRACTAL_BURNINGSHIP,xm,xx,ym,yx,r){};
+};
+
+class JuliaSet : public Fractal {
+  public:
+    JuliaSet(double xm, double xx, double ym, double yx, double r):Fractal(FRACTAL_JULIA,xm,xx,ym,yx,r){};
+    Eigen::ArrayXXf compute(const int& n_iter, const double& c_real, const double& c_imag);
+};
+
+Eigen::ArrayXXf JuliaSet::compute(const int& n_iter, const double& c_real, const double& c_imag){
+  Eigen::ArrayXXi escapetime(height, width); //array to store the number of iterations it took each coord to escape (|z|>2)
+  for(int i=0; i<width; i++){
+    for(int j=0; j<height; j++){
+      float a=xs(i);
+      float b=ys(j);
+      float atmp;
+      int n=1;
+      while(a*a+b*b<4 && n<=n_iter){
+        atmp = a*a - b*b + c_real;
+        b = (a+a)*b + c_imag;
+        a = atmp;
+        n++;
+      }
+      escapetime(j,i) = n>n_iter ? 0 : n;
+    }
+  }
+  Eigen::ArrayXXf et_f = escapetime.cast<float>();
+  return et_f/n_iter;
+};
 
 int main()
 {
   Eigen::setNbThreads(8);
 
-  // Eigen::ArrayXXf escapetime_normed = mandelbrot_cv()/N_ITER;
-  // Eigen::ArrayXXf escapetime_normed = julia(-0.4, 0.6, -2, 2, -2, 2, 300.0);
-  // Eigen::ArrayXXf escapetime_normed = burning_ship(-2, 2, -2, 2, 300.0);
-
-  EscapeTimeFractal frac = EscapeTimeFractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
-  std::printf(" in main %li\n", frac.xs.size());
+  // JuliaFractal frac = JuliaFractal(-2,2,-2,2,300.0);
+  Fractal frac = Fractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
+  // Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER, -0.512511498387847167, 0.521295573094847167);
   Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER);
 
   cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
@@ -247,7 +274,7 @@ int main()
   cv::eigen2cv(etn, image);
   image.convertTo(image, CV_8UC1);
   cv::Mat color_img(image);
-  cv::applyColorMap(image, color_img, cv::COLORMAP_CIVIDIS);
+  cv::applyColorMap(image, color_img, cv::COLORMAP_JET);
   cv::imshow("Fractal", color_img);
   cv::waitKey(0);
   return 0;
