@@ -180,17 +180,16 @@ std::string toLower(std::string s){
 }
 
 class Fractal {
-  using ConfValue=std::variant<int, double>;
   public:
     int formula;
     float nf;
     double xmin, xmax, ymin, ymax, res;
     int width, height;
     Eigen::VectorXd xs, ys;
-    Eigen::ArrayXXf escapetime;
+    Eigen::ArrayXXd escapetime;
     Fractal(int f, double xm, double xx, double ym, double yx, double r);
     Fractal(const std::string& s);
-    Eigen::ArrayXXf compute(const int& n_iter);
+    Eigen::ArrayXXd compute(const int& n_iter);
   private:
     void otherInit();
 
@@ -211,6 +210,14 @@ Fractal::Fractal(int f, double xm, double xx, double ym, double yx, double r){
   ymax=yx;
   res=r;
   otherInit();
+}
+
+void readFromConf(const std::map<std::string, std::string>& config, const std::string& name, double* value){
+    if(config.find(name)==config.end()){
+      std::cerr << name << " misisng from config.";
+    } else {
+      *value=stof(config.at(name));
+    }
 }
 
 // create fractal from config file; argument is filename
@@ -251,37 +258,17 @@ Fractal::Fractal(const std::string& conffile){
       std::cerr << "The formula " << formulaStr << " is not a valid option.\n";
     }
   }
-
-  if(config.find("res")==config.end()){
-    std::cerr << "res missing from config.\n";
-  } else {
-    res=std::stof(config.at("res"));
-  }
-  if(config.find("xmin")==config.end()){
-    std::cerr << "xmin missing from config.\n";
-  } else {
-    xmin=std::stof(config.at("xmin"));
-  }
-  if(config.find("xmax")==config.end()){
-    std::cerr << "xmax missing from config.\n";
-  } else {
-    xmax=std::stof(config.at("xmax"));
-  }
-    if(config.find("ymin")==config.end()){
-    std::cerr << "ymin missing from config.\n";
-  } else {
-    ymin=std::stof(config.at("ymin"));
-  }
-  if(config.find("ymax")==config.end()){
-    std::cerr << "ymax missing from config.\n";
-  } else {
-    ymax=std::stof(config.at("ymax"));
-  }
+  
+  readFromConf(config, "res", &res);
+  readFromConf(config, "xmin", &xmin);
+  readFromConf(config, "xmax", &xmax);
+  readFromConf(config, "ymin", &ymin);
+  readFromConf(config, "ymax", &ymax);
   otherInit();
 }
 
-Eigen::ArrayXXf Fractal::compute(const int& n_iter){
-  escapetime = Eigen::ArrayXXf(height, width);
+Eigen::ArrayXXd Fractal::compute(const int& n_iter){
+  escapetime = Eigen::ArrayXXd(height, width);
   float a=0, b=0;
   float atmp;
   for(int i=0; i<width; i++){
@@ -326,10 +313,10 @@ Eigen::ArrayXXf Fractal::compute(const int& n_iter){
 class JuliaSet : public Fractal {
   public:
     JuliaSet(double xm, double xx, double ym, double yx, double r):Fractal(FRACTAL_JULIA,xm,xx,ym,yx,r){};
-    Eigen::ArrayXXf compute(const int& n_iter, const double& c_real, const double& c_imag);
+    Eigen::ArrayXXd compute(const int& n_iter, const double& c_real, const double& c_imag);
 };
 
-Eigen::ArrayXXf JuliaSet::compute(const int& n_iter, const double& c_real, const double& c_imag){
+Eigen::ArrayXXd JuliaSet::compute(const int& n_iter, const double& c_real, const double& c_imag){
   Eigen::ArrayXXi escapetime(height, width); //array to store the number of iterations it took each coord to escape (|z|>2)
   for(int i=0; i<width; i++){
     for(int j=0; j<height; j++){
@@ -346,7 +333,7 @@ Eigen::ArrayXXf JuliaSet::compute(const int& n_iter, const double& c_real, const
       escapetime(j,i) = n>n_iter ? 0 : n;
     }
   }
-  Eigen::ArrayXXf et_f = escapetime.cast<float>();
+  Eigen::ArrayXXd et_f = escapetime.cast<double>();
   return et_f/n_iter;
 };
 
@@ -357,12 +344,12 @@ int main()
   // JuliaFractal frac = JuliaFractal(-2,2,-2,2,300.0);
   // Fractal frac = Fractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
   Fractal frac=Fractal("fractalconf.cfg");
-  // Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER, -0.512511498387847167, 0.521295573094847167);
-  Eigen::ArrayXXf escapetime_normed=frac.compute(N_ITER);
+  // Eigen::ArrayXXd escapetime_normed=frac.compute(N_ITER, -0.512511498387847167, 0.521295573094847167);
+  Eigen::ArrayXXd escapetime_normed=frac.compute(N_ITER);
 
   cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
   cv::Mat image;
-  Eigen::MatrixXf etn(escapetime_normed);
+  Eigen::MatrixXd etn(escapetime_normed);
   etn = etn*(255);
   cv::eigen2cv(etn, image);
   image.convertTo(image, CV_8UC1);
