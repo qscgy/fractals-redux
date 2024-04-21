@@ -183,10 +183,11 @@ class Fractal {
   using ConfValue=std::variant<int, double>;
   public:
     int formula;
+    float nf;
     double xmin, xmax, ymin, ymax, res;
     int width, height;
     Eigen::VectorXd xs, ys;
-    Eigen::ArrayXXi escapetime;
+    Eigen::ArrayXXf escapetime;
     Fractal(int f, double xm, double xx, double ym, double yx, double r);
     Fractal(const std::string& s);
     Eigen::ArrayXXf compute(const int& n_iter);
@@ -280,12 +281,15 @@ Fractal::Fractal(const std::string& conffile){
 }
 
 Eigen::ArrayXXf Fractal::compute(const int& n_iter){
-  escapetime = Eigen::ArrayXXi(height, width);
+  escapetime = Eigen::ArrayXXf(height, width);
+  float a=0, b=0;
+  float atmp;
   for(int i=0; i<width; i++){
     for(int j=0; j<height; j++){
       int n=1;
-      float a=0, b=0;
-      float atmp;
+      a=0;
+      b=0;
+      atmp=0;
       if(formula==FRACTAL_MANDELBROT){
         while(a*a+b*b<4 && n<=n_iter){
           atmp = a*a - b*b + xs(i);
@@ -303,12 +307,20 @@ Eigen::ArrayXXf Fractal::compute(const int& n_iter){
           n++;
         }
       } // else Julia, but that needs additional arguments (c_real and c_imag)
-
-      escapetime(j,i) = n>n_iter ? 0 : n;
+      if(formula==FRACTAL_MANDELBROT){
+        nf = (float)n;
+        if (n>n_iter){
+          escapetime(j,i) = 0;
+        } else {
+          nf = nf - log2(log2(a*a+b*b)/2)/ log2(2.0f);
+          escapetime(j,i) = nf;
+        }
+      } else {
+        escapetime(j,i) = n>n_iter ? 0 : n;
+      }
     }
   }
-  Eigen::ArrayXXf et_f = escapetime.cast<float>();
-  return et_f/n_iter;
+  return escapetime/((float)n_iter);
 }
 
 class JuliaSet : public Fractal {
@@ -351,7 +363,7 @@ int main()
   cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
   cv::Mat image;
   Eigen::MatrixXf etn(escapetime_normed);
-  etn = etn*255;
+  etn = etn*(255);
   cv::eigen2cv(etn, image);
   image.convertTo(image, CV_8UC1);
   cv::Mat color_img(image);
