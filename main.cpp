@@ -13,6 +13,7 @@
 #include <map>
 #include <variant>
 #include <algorithm>
+
 // #include <opencv2/imgproc.hpp>
 // #include <opencv2/highgui/highgui.hpp>
 #define IM_HEIGHT 1000
@@ -24,6 +25,7 @@
 
 // using Eigen::ArrayXXd;
 // using namespace Eigen;
+// using namespace std;
 
 // https://gitlab.math.ethz.ch/NumCSE/NumCSE/blob/3c723d06ffacab3dc45726ad0a95e33987dc35aa/Utils/meshgrid.hpp
 //! Generates a mesh, just like Matlab's meshgrid
@@ -45,6 +47,8 @@ void meshgrid(const Eigen::Matrix<Scalar, -1, 1>& x,
     Y.col(j) = y;
   }
 }
+
+const double pi = std::acos(-1.0);
 
 //! Generates a mesh, just like Matlab's meshgrid
 //  Template specialization for row vectors (Eigen::RowVectorXd)
@@ -179,6 +183,34 @@ std::string toLower(std::string s){
   return s;
 }
 
+const int MAGMA = 0;
+const double magma [5] = {0x003f5c,0x58508d,0xbc5090,0xff6361,0xffa600};
+const int magma_len = 5;
+
+double interp_color(const int cmap, const double val, const double min, const double max){
+  const double* cmap_vals;
+  double nvals;
+  if(val<min || val>max){
+    throw std::invalid_argument("val must be between min and max");
+  }
+  double sval = (val - min)/(max - min);
+  if (cmap==MAGMA){
+    cmap_vals = magma;
+    nvals = (double)magma_len;
+  }
+
+  double lower, upper, subscaled;
+  for(int i=0; i<nvals-1; i++){
+    lower = ((double)i)/nvals;
+    upper = ((double)(i+1))/nvals;
+    if(sval>=lower && sval<upper){
+      subscaled = (sval-lower)/(upper-lower);
+      return (1-subscaled)*(*(cmap_vals+i+1)) + subscaled*(*(cmap_vals+i));
+    }
+  }
+  return *(cmap_vals + (((int)nvals)-1));
+}
+
 class Fractal {
   public:
     int formula;
@@ -258,7 +290,7 @@ Fractal::Fractal(const std::string& conffile){
       std::cerr << "The formula " << formulaStr << " is not a valid option.\n";
     }
   }
-  
+
   readFromConf(config, "res", &res);
   readFromConf(config, "xmin", &xmin);
   readFromConf(config, "xmax", &xmax);
@@ -337,6 +369,11 @@ Eigen::ArrayXXd JuliaSet::compute(const int& n_iter, const double& c_real, const
   return et_f/n_iter;
 };
 
+// cv::Mat colormap_fractal(Eigen::ArrayXXd& et_normed){
+//   cv::Mat imageR, imageG, imageB;
+//   et_normed
+// }
+
 int main()
 {
   Eigen::setNbThreads(8);
@@ -349,7 +386,12 @@ int main()
 
   cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
   cv::Mat image;
+
   Eigen::MatrixXd etn(escapetime_normed);
+
+  double color = interp_color(MAGMA, 0.5, 0, 1);
+  printf("Color: %f", color);
+
   etn = etn*(255);
   cv::eigen2cv(etn, image);
   image.convertTo(image, CV_8UC1);
