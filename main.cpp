@@ -2,7 +2,6 @@
 #undef __ARM_NEON
 #undef __ARM_NEON__
 #endif
-#pragma once
 #include "colormap.h"
 #include <fstream>
 #include <Eigen/Dense>
@@ -79,24 +78,15 @@ class Fractal {
     int topLeft[2], lowerRight[2];
     bool onSecondClick;
     int cmap;
+    double c_real, c_imag;
     Eigen::VectorXd xs, ys;
     Eigen::ArrayXXd escapetime;
     cv::Mat imageR;
     Fractal(int f, double xm, double xx, double ym, double yx, double r);
     Fractal(const std::string& s);
     Eigen::ArrayXXd compute(const int& n_iter);
-    // Eigen::ArrayXXd compute(const int& n_iter, const std::string& cmap);
     void colorize(const double& val, const int& i, const int& j);
-
-    // only works with Julia
-    Eigen::ArrayXXd compute(const int& n_iter, const double& c_real, const double& c_imag);
-
     void otherInit();
-};
-
-struct MouseData{
-  Fractal* frac;
-  double c_real, c_imag;
 };
 
 void Fractal::otherInit(){
@@ -192,9 +182,15 @@ Fractal::Fractal(const std::string& conffile){
   readFromConf(config, "xmax", &xmax);
   readFromConf(config, "ymin", &ymin);
   readFromConf(config, "ymax", &ymax);
-  // if((formula==FRACTAL_JULIA && config.find("c_real")!=config.end() && config.find("c_imag")!=config.end())){
-  //   readFromConf(config, "c_real", &)
-  // }
+
+  if((formula==FRACTAL_JULIA && config.find("c_real")!=config.end() && config.find("c_imag")!=config.end())){
+    readFromConf(config, "c_real", &c_real);
+    readFromConf(config, "c_imag", &c_imag);
+  } else if(formula==FRACTAL_JULIA){
+    std::cerr << "Must provide both c_real and c_imag for formula 'julia'." << std::endl;
+    exit(1);
+  }
+
   otherInit();
 }
 
@@ -226,7 +222,16 @@ Eigen::ArrayXXd Fractal::compute(const int& n_iter){
           a = atmp;
           n++;
         }
-      } // else Julia, but that needs additional arguments (c_real and c_imag)
+      } else if(formula==FRACTAL_JULIA){
+        a=xs(i);
+        b=ys(j);
+        while(a*a+b*b<4 && n<=n_iter){
+          atmp = a*a - b*b + c_real;
+          b = (a+a)*b + c_imag;
+          a = atmp;
+          n++;
+        }
+      }
       if(formula==FRACTAL_MANDELBROT){
         nf = (float)n;
         if (n>=n_iter){
@@ -255,28 +260,6 @@ void Fractal::colorize(const double& val, const int& i, const int& j){
     // printf("pixel[%d]=%d\n", i, pixel[i]);
   }
 }
-
-Eigen::ArrayXXd Fractal::compute(const int& n_iter, const double& c_real, const double& c_imag){
-  escapetime = Eigen::ArrayXXd(height, width);
-  long colorval;
-  for(int i=0; i<width; i++){
-    for(int j=0; j<height; j++){
-      float a=xs(i);
-      float b=ys(j);
-      float atmp;
-      int n=1;
-      while(a*a+b*b<4 && n<=n_iter){
-        atmp = a*a - b*b + c_real;
-        b = (a+a)*b + c_imag;
-        a = atmp;
-        n++;
-      }
-      escapetime(j,i) = n>=n_iter ? 1.0 : ((double)n)/n_iter;
-      colorize(escapetime(j,i), j, i);
-    }
-  }
-  return escapetime;
-};
 
 void editWindowCallback(int event, int x, int y, int flags, void* userdata){
   Fractal* frac = (Fractal*) userdata;
@@ -320,17 +303,17 @@ int main(int argc, char **argv)
 
   Eigen::setNbThreads(16);
 
-  if((argc >= 3) && frac.formula==FRACTAL_JULIA){
-    double c_real = atof(argv[1]);
-    double c_imag = atof(argv[2]);
-    frac.compute(N_ITER, c_real, c_imag);
-  } else {
-    frac.compute(N_ITER);
-  }
+  frac.compute(N_ITER);
   
   cv::namedWindow("Fractal", cv::WINDOW_AUTOSIZE);
   cv::setMouseCallback("Fractal", editWindowCallback, &frac);
   cv::imshow("Fractal", frac.imageR);
   cv::waitKey(0);
+  if(argc >= 2){  // save if a file path was provided
+    const char *fmt_str = "%s/%.6f_%.6f_res%.1f.png";
+    char* result;
+    asprintf(&result, fmt_str, argv[1],frac.xmin,frac.ymin, frac.res);
+    cv::imwrite(result, frac.imageR);
+  }
   return 0;
 }
