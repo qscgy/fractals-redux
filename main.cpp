@@ -3,7 +3,7 @@
 #undef __ARM_NEON__
 #endif
 #pragma once
-#include <iostream>
+#include "colormap.h"
 #include <fstream>
 #include <Eigen/Dense>
 #include <opencv2/opencv.hpp>
@@ -13,12 +13,13 @@
 #include <map>
 #include <variant>
 #include <algorithm>
+#include <cmath>
 
 // #include <opencv2/imgproc.hpp>
 // #include <opencv2/highgui/highgui.hpp>
 #define IM_HEIGHT 1000
 #define IM_WIDTH 1000
-#define N_ITER 384
+#define N_ITER 380
 #define FRACTAL_JULIA 2
 #define FRACTAL_MANDELBROT 1
 #define FRACTAL_BURNINGSHIP 3
@@ -64,151 +65,9 @@ void meshgrid(const Eigen::Matrix<Scalar, 1, -1>& x,
   meshgrid(xt, yt, X, Y);
 }
 
-Eigen::ArrayXXf mandelbrot(const Eigen::ArrayXXcf& complex_coords){
-  Eigen::ArrayXXcf z_arr(IM_HEIGHT, IM_WIDTH);  //the array of z values for each coordinate
-  Eigen::ArrayXXi all_i (IM_HEIGHT, IM_WIDTH);
-  Eigen::ArrayXXcf other(IM_HEIGHT, IM_WIDTH);  //temp array to hold output of iteration
-  Eigen::ArrayXXi escapetime(IM_HEIGHT, IM_WIDTH); //array to store the number of iterations it took each coord to escape (|z|>2)
-
-  for(int i=1;i<=N_ITER;i++){
-    other = z_arr*z_arr + complex_coords;
-    all_i = all_i+1;
-    // std::cout << other << "\n";
-    //escapetime = escaped on this iteration ? i : 0
-    // std::cout << escapetime << "\n";
-    escapetime = ((z_arr.abs() >= 2)&&(escapetime == 0)).select(all_i, escapetime);
-    z_arr = other;
-  }
-  return escapetime.cast<float>();
-}
-
-Eigen::ArrayXXf mandelbrot_cv(){
-  Eigen::VectorXf xs = Eigen::VectorXf::LinSpaced(IM_WIDTH, -2, 2); //x coordinates in order (for meshgrid)
-  Eigen::VectorXf ys = Eigen::VectorXf::LinSpaced(IM_HEIGHT, -2, 2.0);  //y coordinates in order (for meshgrid)
-  Eigen::ArrayXXi escapetime(IM_HEIGHT, IM_WIDTH); //array to store the number of iterations it took each coord to escape (|z|>2)
-  for(int i=0; i<IM_WIDTH; i++){
-    for(int j=0; j<IM_HEIGHT; j++){
-      float a=0, b=0;
-      float atmp;
-      int c=1;
-      while(a*a+b*b<4 && c<=N_ITER){
-        atmp = a*a - b*b + xs(i);
-        b = (a+a)*b + ys(j);
-        a = atmp;
-        c++;
-      }
-      escapetime(j,i) = c>N_ITER ? 0 : c;
-    }
-  }
-  return escapetime.cast<float>();
-}
-
-Eigen::ArrayXXf julia(const double& c_real, 
-                      const double& c_imag,
-                      const double& xmin,
-                      const double& xmax,
-                      const double& ymin,
-                      const double& ymax,
-                      const double& res){
-  int width = (int)((xmax-xmin)*res);
-  int height = (int)((ymax-ymin)*res);
-  Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
-  Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
-  Eigen::ArrayXXi escapetime(height, width); //array to store the number of iterations it took each coord to escape (|z|>2)
-  for(int i=0; i<width; i++){
-    for(int j=0; j<height; j++){
-      float a=xs(i);
-      float b=ys(j);
-      float atmp;
-      int n=1;
-      while(a*a+b*b<4 && n<=N_ITER){
-        atmp = a*a - b*b + c_real;
-        b = (a+a)*b + c_imag;
-        a = atmp;
-        n++;
-      }
-      escapetime(j,i) = n>N_ITER ? 0 : n;
-    }
-  }
-  Eigen::ArrayXXf et_f = escapetime.cast<float>();
-  return et_f/N_ITER;
-}
-
-// TODO make this use a common class so there isn't repeated code
-Eigen::ArrayXXf burning_ship(const double& xmin,
-                            const double& xmax,
-                            const double& ymin,
-                            const double& ymax,
-                            const double& res){
-  int width = (int)((xmax-xmin)*res);
-  int height = (int)((ymax-ymin)*res);
-  Eigen::VectorXd xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
-  Eigen::VectorXd ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax);  //y coordinates in order (for meshgrid)
-  Eigen::ArrayXXi escapetime(height, width); //array to store the number of iterations it took each coord to escape (|z|>2)
-  for(int i=0; i<width; i++){
-    for(int j=0; j<height; j++){
-      float a=0;
-      float b=0;
-      float atmp;
-      int n=1;
-      while(a*a+b*b<4 && n<=N_ITER){
-        a = abs(a);
-        b = abs(b);
-        atmp = a*a - b*b + xs(i);
-        b = (a+a)*b + ys(j);
-        a = atmp;
-        n++;
-      }
-      escapetime(j,i) = n>N_ITER ? 0 : n;
-    }
-  }
-  Eigen::ArrayXXf et_f = escapetime.cast<float>();
-  return et_f/N_ITER;
-}
-
-Eigen::ArrayXXf julia(const double& c_real, const double& c_imag){
-  double xmin=-2, xmax=2;
-  double ymin=-1, ymax=1;
-  return julia(c_real, c_imag, xmin, xmax, ymin, ymax, 300.0);
-}
-
-Eigen::ArrayXXf julia(const double& c_real, const double& c_imag, const double& res){
-  double xmin=-2, xmax=2;
-  double ymin=-1, ymax=1;
-  return julia(c_real, c_imag, xmin, xmax, ymin, ymax, res);
-}
-
 std::string toLower(std::string s){
   std::transform(s.begin(), s.end(), s.begin(), ::tolower);
   return s;
-}
-
-const int MAGMA = 0;
-const double magma [5] = {0x003f5c,0x58508d,0xbc5090,0xff6361,0xffa600};
-const int magma_len = 5;
-
-double interp_color(const int cmap, const double val, const double min, const double max){
-  const double* cmap_vals;
-  double nvals;
-  if(val<min || val>max){
-    throw std::invalid_argument("val must be between min and max");
-  }
-  double sval = (val - min)/(max - min);
-  if (cmap==MAGMA){
-    cmap_vals = magma;
-    nvals = (double)magma_len;
-  }
-
-  double lower, upper, subscaled;
-  for(int i=0; i<nvals-1; i++){
-    lower = ((double)i)/nvals;
-    upper = ((double)(i+1))/nvals;
-    if(sval>=lower && sval<upper){
-      subscaled = (sval-lower)/(upper-lower);
-      return (1-subscaled)*(*(cmap_vals+i+1)) + subscaled*(*(cmap_vals+i));
-    }
-  }
-  return *(cmap_vals + (((int)nvals)-1));
 }
 
 class Fractal {
@@ -217,23 +76,41 @@ class Fractal {
     float nf;
     double xmin, xmax, ymin, ymax, res;
     int width, height;
+    int topLeft[2], lowerRight[2];
+    bool onSecondClick;
+    int cmap;
     Eigen::VectorXd xs, ys;
     Eigen::ArrayXXd escapetime;
+    cv::Mat imageR;
     Fractal(int f, double xm, double xx, double ym, double yx, double r);
     Fractal(const std::string& s);
     Eigen::ArrayXXd compute(const int& n_iter);
-  private:
-    void otherInit();
+    // Eigen::ArrayXXd compute(const int& n_iter, const std::string& cmap);
+    void colorize(const double& val, const int& i, const int& j);
 
+    // only works with Julia
+    Eigen::ArrayXXd compute(const int& n_iter, const double& c_real, const double& c_imag);
+
+    void otherInit();
+};
+
+struct MouseData{
+  Fractal* frac;
+  double c_real, c_imag;
 };
 
 void Fractal::otherInit(){
   width = (int)((xmax-xmin)*res);
   height = (int)((ymax-ymin)*res);
+  onSecondClick = false;
   xs = Eigen::VectorXd::LinSpaced(width, xmin, xmax); //x coordinates in order (for meshgrid)
   ys = Eigen::VectorXd::LinSpaced(height, ymin, ymax).reverse();  //y coordinates in order (for meshgrid)
+  imageR = cv::Mat(height, width, CV_8UC3, cv::Scalar(0,0,0));
 }
 
+/*
+ * Constructs an object representing a fractal.
+*/
 Fractal::Fractal(int f, double xm, double xx, double ym, double yx, double r){
   formula=f;
   xmin=xm;
@@ -247,7 +124,9 @@ Fractal::Fractal(int f, double xm, double xx, double ym, double yx, double r){
 void readFromConf(const std::map<std::string, std::string>& config, const std::string& name, double* value){
     if(config.find(name)==config.end()){
       std::cerr << name << " misisng from config.";
+      exit(1);
     } else {
+      // std::cout << name << "\n";
       *value=stof(config.at(name));
     }
 }
@@ -257,6 +136,7 @@ Fractal::Fractal(const std::string& conffile){
   std::map<std::string, std::string> config;
   std::ifstream cFile("fractalconf.cfg");
 
+  // read in fields from config file
   if (cFile.is_open())
   {
     std::string line;
@@ -276,6 +156,7 @@ Fractal::Fractal(const std::string& conffile){
     std::cerr << "Couldn't open config file for reading.\n";
   }
 
+  // read string-valued fields first
   if(config.find("formula")==config.end()){
     std::cerr << "formula missing from config.\n";
   } else {
@@ -290,12 +171,30 @@ Fractal::Fractal(const std::string& conffile){
       std::cerr << "The formula " << formulaStr << " is not a valid option.\n";
     }
   }
+  if(config.find("cmap")==config.end()){
+    cmap=GRAYSCALE;
+  } else {  // select the colormap
+    const std::string cmapStr = toLower(config.at("cmap"));
+    if(cmapStr=="magma"){
+      cmap=MAGMA;
+    } else if(cmapStr=="rainbow"){
+      cmap=RAINBOW;
+    } else if(cmapStr=="grape"){
+      cmap=GRAPE;
+    } else {
+      cmap=GRAYSCALE;
+    }
+  }
 
+  // read in the rest of the fields
   readFromConf(config, "res", &res);
   readFromConf(config, "xmin", &xmin);
   readFromConf(config, "xmax", &xmax);
   readFromConf(config, "ymin", &ymin);
   readFromConf(config, "ymax", &ymax);
+  // if((formula==FRACTAL_JULIA && config.find("c_real")!=config.end() && config.find("c_imag")!=config.end())){
+  //   readFromConf(config, "c_real", &)
+  // }
   otherInit();
 }
 
@@ -303,8 +202,10 @@ Eigen::ArrayXXd Fractal::compute(const int& n_iter){
   escapetime = Eigen::ArrayXXd(height, width);
   float a=0, b=0;
   float atmp;
-  for(int i=0; i<width; i++){
-    for(int j=0; j<height; j++){
+  long colorval;
+  // printf("width=%d  height=%d\n", width, height);
+  for(int j=0; j<height; j++){
+    for(int i=0; i<width; i++){
       int n=1;
       a=0;
       b=0;
@@ -328,28 +229,36 @@ Eigen::ArrayXXd Fractal::compute(const int& n_iter){
       } // else Julia, but that needs additional arguments (c_real and c_imag)
       if(formula==FRACTAL_MANDELBROT){
         nf = (float)n;
-        if (n>n_iter){
-          escapetime(j,i) = 0;
+        if (n>=n_iter){
+          escapetime(j,i) = 1.0;
         } else {
-          nf = nf - log2(log2(a*a+b*b)/2)/ log2(2.0f);
-          escapetime(j,i) = nf;
+          // printf("%f\n", log(log(a*a+b*b)/2.0f)/log(2));
+          nf = nf - log(log(a*a+b*b)/2.0f)/log(2);
+          escapetime(j,i) = nf/((double)n_iter);
         }
       } else {
-        escapetime(j,i) = n>n_iter ? 0 : n;
+        escapetime(j,i) = n>=n_iter ? 1.0 : n/((double)n_iter);
       }
+      colorize(escapetime(j,i), j, i);
     }
   }
-  return escapetime/((float)n_iter);
+  // return escapetime/((double)n_iter);
+  return escapetime;
 }
 
-class JuliaSet : public Fractal {
-  public:
-    JuliaSet(double xm, double xx, double ym, double yx, double r):Fractal(FRACTAL_JULIA,xm,xx,ym,yx,r){};
-    Eigen::ArrayXXd compute(const int& n_iter, const double& c_real, const double& c_imag);
-};
+void Fractal::colorize(const double& val, const int& i, const int& j){
+  // printf("hex color: #%x\n", val);
+  long colorval_l = std::lround(interp_color(cmap, val));
+  cv::Vec3b& pixel = imageR.at<cv::Vec3b>(i, j);
+  for(int c=0; c<3;c++){
+    pixel[c] = (colorval_l >> (c * 8)) & 0xFF;
+    // printf("pixel[%d]=%d\n", i, pixel[i]);
+  }
+}
 
-Eigen::ArrayXXd JuliaSet::compute(const int& n_iter, const double& c_real, const double& c_imag){
-  Eigen::ArrayXXi escapetime(height, width); //array to store the number of iterations it took each coord to escape (|z|>2)
+Eigen::ArrayXXd Fractal::compute(const int& n_iter, const double& c_real, const double& c_imag){
+  escapetime = Eigen::ArrayXXd(height, width);
+  long colorval;
   for(int i=0; i<width; i++){
     for(int j=0; j<height; j++){
       float a=xs(i);
@@ -362,42 +271,66 @@ Eigen::ArrayXXd JuliaSet::compute(const int& n_iter, const double& c_real, const
         a = atmp;
         n++;
       }
-      escapetime(j,i) = n>n_iter ? 0 : n;
+      escapetime(j,i) = n>=n_iter ? 1.0 : ((double)n)/n_iter;
+      colorize(escapetime(j,i), j, i);
     }
   }
-  Eigen::ArrayXXd et_f = escapetime.cast<double>();
-  return et_f/n_iter;
+  return escapetime;
 };
 
-// cv::Mat colormap_fractal(Eigen::ArrayXXd& et_normed){
-//   cv::Mat imageR, imageG, imageB;
-//   et_normed
-// }
+void editWindowCallback(int event, int x, int y, int flags, void* userdata){
+  Fractal* frac = (Fractal*) userdata;
+  if(event == cv::EVENT_LBUTTONDOWN){
+    // x=right, y=down
+    if(frac->onSecondClick){
+      frac->lowerRight[0] = x;
+      frac->lowerRight[1] = y;
 
-int main()
+      if(frac->lowerRight[0] > frac->topLeft[0]){
+        frac->xmin = frac->xs(frac->topLeft[0]);
+        frac->xmax = frac->xs(frac->lowerRight[0]);
+      } else {
+        frac->xmin = frac->xs(frac->lowerRight[0]);
+        frac->xmax = frac->xs(frac->topLeft[0]);
+      }
+      if(frac->lowerRight[1] > frac->topLeft[1]){
+        frac->ymax = frac->ys(frac->topLeft[1]);
+        frac->ymin = frac->ys(frac->lowerRight[1]);
+      } else {
+        frac->ymax = frac->ys(frac->lowerRight[1]);
+        frac->ymin = frac->ys(frac->topLeft[1]);
+      }
+      frac->res = frac->width/(frac->xmax - frac->xmin);
+
+      frac->otherInit();
+      frac->compute(N_ITER);
+      cv::imshow("Fractal", frac->imageR);
+    } else {
+      frac->topLeft[0] = x;
+      frac->topLeft[1] = y;
+      frac->onSecondClick = true;
+    }
+    std::cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+  }
+}
+
+int main(int argc, char **argv)
 {
-  Eigen::setNbThreads(8);
+  Fractal frac = Fractal("fractalconf.cfg");
 
-  // JuliaFractal frac = JuliaFractal(-2,2,-2,2,300.0);
-  // Fractal frac = Fractal(FRACTAL_BURNINGSHIP, -2,2,-2,2,300.0);
-  Fractal frac=Fractal("fractalconf.cfg");
-  // Eigen::ArrayXXd escapetime_normed=frac.compute(N_ITER, -0.512511498387847167, 0.521295573094847167);
-  Eigen::ArrayXXd escapetime_normed=frac.compute(N_ITER);
+  Eigen::setNbThreads(16);
 
-  cv::namedWindow("Fractal", cv::WINDOW_NORMAL);
-  cv::Mat image;
-
-  Eigen::MatrixXd etn(escapetime_normed);
-
-  double color = interp_color(MAGMA, 0.5, 0, 1);
-  printf("Color: %f", color);
-
-  etn = etn*(255);
-  cv::eigen2cv(etn, image);
-  image.convertTo(image, CV_8UC1);
-  cv::Mat color_img(image);
-  cv::applyColorMap(image, color_img, cv::COLORMAP_JET);
-  cv::imshow("Fractal", color_img);
+  if((argc >= 3) && frac.formula==FRACTAL_JULIA){
+    double c_real = atof(argv[1]);
+    double c_imag = atof(argv[2]);
+    frac.compute(N_ITER, c_real, c_imag);
+  } else {
+    frac.compute(N_ITER);
+  }
+  
+  cv::namedWindow("Fractal", cv::WINDOW_AUTOSIZE);
+  cv::setMouseCallback("Fractal", editWindowCallback, &frac);
+  cv::imshow("Fractal", frac.imageR);
   cv::waitKey(0);
   return 0;
 }

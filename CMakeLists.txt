@@ -30,7 +30,8 @@ endif()
 find_package(OpenMP REQUIRED)
 
 include_directories(/usr/local/include /opt/homebrew/include /opt/homebrew/opt/llvm/include)
+include_directories(colormap)
 
-add_executable(Fractal main.cpp)
+add_executable(Fractal main.cpp colormap/colormap.cpp colormap/colormap.h)
 target_link_libraries(Fractal PUBLIC Eigen3::Eigen OpenMP::OpenMP_CXX ${OpenCV_LIBS} )
 # OPENMP::OpenMP_CXX
