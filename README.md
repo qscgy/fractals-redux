@@ -34,6 +34,9 @@ ymax=1.5
 ### Zooming in
 In order to zoom in on a region, click once in the top-left corner of the desired window, and again in the lower-right corner. The window will automatically resize and zoom so it displays the part of the fractal in that bounding box.
 
+### Resetting the view
+To reset the view to the original bounds and window size, right-click anywhere.
+
 ### Other parameters
 There is an optional parameter `cmap` that sets the colormap used. Right now the following colormaps are supported (not case sensitive):
 - grayscale

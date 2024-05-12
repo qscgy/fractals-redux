@@ -1,13 +1,35 @@
+#include <map>
+#include <vector>
+#include <string>
 #pragma once
 
-struct Colormap {
-  public:
-    int map_num;
-    long* colorvals;
-    int n_colors;
+const std::map<std::string, std::vector<long>> palettes {
+  {
+    "magma",
+    std::vector<long> {0xffdb00, 0xffa904, 0xee7b06, 0xa12424, 0x400b0b}
+  },
+  {
+    "grayscale",
+    std::vector<long> {0x000000, 0x555555, 0xaaaaaa, 0xffffff}
+  },
+  {
+    "rainbow",
+    std::vector<long> {0xe81416, 0xffa500, 0xfaeb36, 0x79c314, 0x487de7, 0x4b369d, 0x70369d}
+  },
+  {
+    "grape",
+    std::vector<long> {0x522956, 0x7b395c, 0x9d505d, 0xb66d5d}
+  },
+  {
+    "magma2",
+    std::vector<long> {0x000004,0x51127c,0xb73779,0xfc8961,0xfcfdbf}
+  }
 };
 
-// Colormap Magma,
+struct colormap {
+  const long* cmap_vals;
+  int nvals;
+};
 
 const int MAGMA = 0;
 // const long magma [5] = {0x003f5c,0x58508d,0xbc5090,0xff6361,0xffa600};
@@ -26,5 +48,9 @@ const int GRAPE = 3;
 const long grape [4] = {0x522956, 0x7b395c, 0x9d505d, 0xb66d5d};
 const int grape_len = 4;
 
-long interp_color(const int cmap, const double val, const double min, const double max);
-long interp_color(const int cmap, const double val);
+const int MAGMA2 = 4;
+const long magma2 [5] = {0x000004,0x51127c,0xb73779,0xfc8961,0xfcfdbf};
+const int magma2_len = 5;
+
+long interp_color(const colormap& cmap, const double val, const double min, const double max);
+long interp_color(const colormap& cmap, const double val);

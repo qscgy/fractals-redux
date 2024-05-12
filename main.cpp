@@ -12,17 +12,11 @@
 #include <algorithm>
 #include <cmath>
 
-// #include <opencv2/imgproc.hpp>
-// #include <opencv2/highgui/highgui.hpp>
-#define IM_HEIGHT 1000
-#define IM_WIDTH 1000
 #define N_ITER 380
 #define FRACTAL_MANDELBROT 1
 #define FRACTAL_JULIA 2
 #define FRACTAL_BURNINGSHIP 3
 
-// using Eigen::ArrayXXd;
-// using namespace Eigen;
 // using namespace std;
 
 std::vector<double> linspace(double min, double max, int n)
@@ -54,9 +48,10 @@ class Fractal {
     float nf;
     double xmin, xmax, ymin, ymax, res;
     int width, height;
+    double homeParams[5];
     int topLeft[2], lowerRight[2];
     bool onSecondClick;
-    int cmap;
+    colormap cmap;
     double c_real, c_imag;
     std::vector<double> xs, ys;
     cv::Mat escapetime;
@@ -80,8 +75,11 @@ void Fractal::otherInit(){
   imageR = cv::Mat(height, width, CV_8UC3, cv::Scalar(0,0,0));
 }
 
-/*
+/**
  * Constructs an object representing a fractal.
+ * @param f formula code
+ * @param xm xmin
+ * @param xx xmax
 */
 Fractal::Fractal(int f, double xm, double xx, double ym, double yx, double r){
   formula=f;
@@ -143,20 +141,16 @@ Fractal::Fractal(const std::string& conffile){
       std::cerr << "The formula " << formulaStr << " is not a valid option.\n";
     }
   }
+
   if(config.find("cmap")==config.end()){
-    cmap=GRAYSCALE;
-  } else {  // select the colormap
-    cmapStr = toLower(config.at("cmap"));
-    if(cmapStr=="magma"){
-      cmap=MAGMA;
-    } else if(cmapStr=="rainbow"){
-      cmap=RAINBOW;
-    } else if(cmapStr=="grape"){
-      cmap=GRAPE;
-    } else {
-      cmap=GRAYSCALE;
-    }
+    cmapStr="grayscale";
+  } else {
+    cmapStr=config.at("cmap");
+    if(palettes.find(cmapStr)==palettes.end()){
+      cmapStr="grayscale";
+    } // else, cmapStr is already set to a value that is in palettes
   }
+  cmap = {palettes.at(cmapStr).data(), (int)(palettes.at(cmapStr).size())};
 
   // read in the rest of the fields
   readFromConf(config, "res", &res);
@@ -164,6 +158,11 @@ Fractal::Fractal(const std::string& conffile){
   readFromConf(config, "xmax", &xmax);
   readFromConf(config, "ymin", &ymin);
   readFromConf(config, "ymax", &ymax);
+  homeParams[0] = xmin;
+  homeParams[1] = xmax;
+  homeParams[2] = ymin;
+  homeParams[3] = ymax;
+  homeParams[4] = res;
 
   if((formula==FRACTAL_JULIA && config.find("c_real")!=config.end() && config.find("c_imag")!=config.end())){
     readFromConf(config, "c_real", &c_real);
@@ -233,12 +232,10 @@ Fractal::Fractal(const std::string& conffile){
 }
 
 void Fractal::colorize(const double& val, const int& i, const int& j){
-  // printf("hex color: #%x\n", val);
   long colorval_l = std::lround(interp_color(cmap, val));
   cv::Vec3b& pixel = imageR.at<cv::Vec3b>(i, j);
   for(int c=0; c<3;c++){
     pixel[c] = (colorval_l >> (c * 8)) & 0xFF;
-    // printf("pixel[%d]=%d\n", i, pixel[i]);
   }
 }
 
@@ -275,6 +272,15 @@ void editWindowCallback(int event, int x, int y, int flags, void* userdata){
       frac->onSecondClick = true;
     }
     // std::cout << "Left button of the mouse is clicked - position (" << x << ", " << y << ")" << std::endl;
+  } else if(event==cv::EVENT_RBUTTONDOWN){
+    frac->xmin=frac->homeParams[0];
+    frac->xmax=frac->homeParams[1];
+    frac->ymin=frac->homeParams[2];
+    frac->ymax=frac->homeParams[3];
+    frac->res=frac->homeParams[4];
+    frac->otherInit();
+    frac->compute(N_ITER);
+    cv::imshow("Fractal", frac->imageR);
   }
 }
 
@@ -287,6 +293,7 @@ int main(int argc, char **argv)
   cv::setMouseCallback("Fractal", editWindowCallback, &frac);
   cv::imshow("Fractal", frac.imageR);
   cv::waitKey(0);
+
   if(argc >= 3){  // save if a file path was provided
     char* result;
     const char *fmt_str;

@@ -1,29 +1,14 @@
 #include "colormap.h"
 #include <iostream>
 
-long interp_color(const int cmap, const double val, const double min, const double max){
-  const long* cmap_vals;
-  double nvals;
+long interp_color(const colormap& cmap, const double val, const double min, const double max){
+  const long* cmap_vals=cmap.cmap_vals;
+  double nvals=cmap.nvals;
   if(val<min || val>max){
     throw std::invalid_argument("val must be between min and max");
   }
 
   double sval = (val - min)/(max - min);
-  // printf("val: %f\n", val);
-  // printf("sval: %f  min:%f  max:%f\n", sval, min, max);
-  if (cmap==MAGMA){
-    cmap_vals = magma;
-    nvals = (double)magma_len;
-  } else if(cmap==GRAYSCALE){
-    cmap_vals = grayscale;
-    nvals = (double)grayscale_len;
-  } else if(cmap==RAINBOW){
-    cmap_vals=rainbow;
-    nvals=(double)rainbow_len;
-  } else if(cmap==GRAPE){
-    cmap_vals=grape;
-    nvals=(double)grape_len;
-  }
 
   double lower, upper, subscaled;
   double rgb [3];
@@ -48,6 +33,6 @@ long interp_color(const int cmap, const double val, const double min, const doub
   return *(cmap_vals + (((int)nvals)-1));
 }
 
-long interp_color(const int cmap, const double val){
+long interp_color(const colormap& cmap, const double val){
   return interp_color(cmap, val, 0, 1);
 }
