@@ -4,6 +4,7 @@ This is a simple program to generate images of fractals. Right now it allows for
 ## Requirements
 - OpenCV for C++
 
+It may additionally be necessary to change the `CMAKE_C_COMPILER` and `CMAKE_CXX_COMPILER` values in CMakeLists.txt if `clang` and `clang++` are not available.
 ## Installation
 ```
 git clone https://github.com/qscgy/fractals-redux

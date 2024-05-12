@@ -1,5 +1,14 @@
 #pragma once
 
+struct Colormap {
+  public:
+    int map_num;
+    long* colorvals;
+    int n_colors;
+};
+
+// Colormap Magma,
+
 const int MAGMA = 0;
 // const long magma [5] = {0x003f5c,0x58508d,0xbc5090,0xff6361,0xffa600};
 const long magma [5] = {0xffdb00, 0xffa904, 0xee7b06, 0xa12424, 0x400b0b};
