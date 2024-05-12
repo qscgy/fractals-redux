@@ -181,7 +181,6 @@ Fractal::Fractal(const std::string& conffile){
   float atmp;
   long colorval;
   double* ptr;
-  // printf("width=%d  height=%d\n", width, height);
   for(int j=0; j<height; j++){
     ptr = escapetime.ptr<double>(j);
     for(int i=0; i<width; i++){
@@ -265,7 +264,7 @@ void editWindowCallback(int event, int x, int y, int flags, void* userdata){
         frac->ymax = frac->ys.at(frac->lowerRight[1]);
         frac->ymin = frac->ys.at(frac->topLeft[1]);
       }
-      frac->res = frac->width/(frac->xmax - frac->xmin);
+      frac->res = std::max(frac->width/(frac->xmax - frac->xmin), frac->height/(frac->ymax - frac->ymin));
 
       frac->otherInit();
       frac->compute(N_ITER);
@@ -281,24 +280,23 @@ void editWindowCallback(int event, int x, int y, int flags, void* userdata){
 
 int main(int argc, char **argv)
 {
-  Fractal frac = Fractal("fractalconf.cfg");
-
+  Fractal frac = Fractal(argv[1]);
   frac.compute(N_ITER);
   
   cv::namedWindow("Fractal", cv::WINDOW_AUTOSIZE);
   cv::setMouseCallback("Fractal", editWindowCallback, &frac);
   cv::imshow("Fractal", frac.imageR);
   cv::waitKey(0);
-  if(argc >= 2){  // save if a file path was provided
+  if(argc >= 3){  // save if a file path was provided
     char* result;
     const char *fmt_str;
     if(frac.formula!=FRACTAL_JULIA){
     fmt_str = "%s/%s_%s_%.5g_%.5g_res%.7g.png";
-    asprintf(&result, fmt_str, argv[1], frac.formulaStr.c_str(), 
+    asprintf(&result, fmt_str, argv[2], frac.formulaStr.c_str(), 
         frac.cmapStr.c_str(), frac.xmin, frac.ymin, frac.res);
     } else {
       fmt_str = "%s/%s_%s_%.6g+%.6gi_%.5g_%.5g_res%.7g.png";
-    asprintf(&result, fmt_str, argv[1], frac.formulaStr.c_str(), 
+    asprintf(&result, fmt_str, argv[2], frac.formulaStr.c_str(), 
         frac.cmapStr.c_str(), frac.c_real, frac.c_imag, frac.xmin, frac.ymin, frac.res);
     }
     cv::imwrite(result, frac.imageR);
