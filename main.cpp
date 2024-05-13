@@ -45,7 +45,6 @@ class Fractal {
   public:
     int formula;
     std::string formulaStr, cmapStr;
-    float nf;
     double xmin, xmax, ymin, ymax, res;
     int width, height;
     double homeParams[5];
@@ -104,7 +103,7 @@ void readFromConf(const std::map<std::string, std::string>& config, const std::s
 // create fractal from config file; argument is filename
 Fractal::Fractal(const std::string& conffile){
   std::map<std::string, std::string> config;
-  std::ifstream cFile("fractalconf.cfg");
+  std::ifstream cFile(conffile);
 
   // read in fields from config file
   if (cFile.is_open())
@@ -176,8 +175,8 @@ Fractal::Fractal(const std::string& conffile){
 }
 
  void Fractal::compute(const int& n_iter){
-  float a=0, b=0;
-  float atmp;
+  double a=0, b=0;
+  double atmp, nf;
   long colorval;
   double* ptr;
   for(int j=0; j<height; j++){
@@ -214,12 +213,19 @@ Fractal::Fractal(const std::string& conffile){
         }
       }
       if(formula==FRACTAL_MANDELBROT){
-        nf = (float)n;
+        nf = (double)n;
         if (n>=n_iter){
           ptr[i] = 1.0;
         } else {
-          // printf("%f\n", log(log(a*a+b*b)/2.0f)/log(2));
           nf = nf - log(log(a*a+b*b)/2.0f)/log(2);
+          ptr[i] = nf/((double)n_iter);
+        }
+      } else if(formula==FRACTAL_JULIA){
+        nf = (double)n;
+        if (n>=n_iter){
+          ptr[i] = 1.0;
+        } else {
+          nf = nf + 1 - log(log(a*a+b*b))/log(2);
           ptr[i] = nf/((double)n_iter);
         }
       } else {
@@ -235,7 +241,7 @@ void Fractal::colorize(const double& val, const int& i, const int& j){
   long colorval_l = std::lround(interp_color(cmap, val));
   cv::Vec3b& pixel = imageR.at<cv::Vec3b>(i, j);
   for(int c=0; c<3;c++){
-    pixel[c] = (colorval_l >> (c * 8)) & 0xFF;
+    pixel[c] = (colorval_l >> (c * 8)) & 0xFF;  // set BGR pixel values
   }
 }
 
@@ -286,6 +292,11 @@ void editWindowCallback(int event, int x, int y, int flags, void* userdata){
 
 int main(int argc, char **argv)
 {
+  if(argc<2){
+    std::cerr << "Must pass config file path." << std::endl;
+    exit(1);
+  }
+  
   Fractal frac = Fractal(argv[1]);
   frac.compute(N_ITER);
   

@@ -3,6 +3,8 @@
 #include <string>
 #pragma once
 
+const double _PI = std::acos(-1.0);
+
 const std::map<std::string, std::vector<long>> palettes {
   {
     "magma",
@@ -23,12 +25,33 @@ const std::map<std::string, std::vector<long>> palettes {
   {
     "magma2",
     std::vector<long> {0x000004,0x51127c,0xb73779,0xfc8961,0xfcfdbf}
+  },
+  {
+    "viridis",
+    std::vector<long> {0x440154,0x3b528b,0x21918c,0x5ec962,0xfde725}
+  },
+  {
+    "red2blue",
+    std::vector<long> {0xFF1010, 0xE21122, 0xC51235, 0xA81347, 0x8C145A, 
+                       0x6F156C, 0x52167F, 0x351791, 0x1919A4}
+  },
+  {
+    "rainbow2",
+    std::vector<long> {0x031B26,	0x094F17,	0x707A1C,	0xA53535,	0xBBC655,	0x85DB96,	0xB6DCED,	0xF7F2FF}
   }
 };
 
 struct colormap {
   const long* cmap_vals;
   int nvals;
+};
+
+class Colormap {
+  public:
+    const long* cmap_vals;
+    double** hsv_vals;
+    int nvals;
+    Colormap(const std::string& cmapStr);
 };
 
 const int MAGMA = 0;
@@ -54,3 +77,8 @@ const int magma2_len = 5;
 
 long interp_color(const colormap& cmap, const double val, const double min, const double max);
 long interp_color(const colormap& cmap, const double val);
+
+void rgb2hsv(const double rgb[3], double hsv[3]);
+void hsv2rgb(const double hsv[3], double rgb[3]);
+double rgb2linear(unsigned char channel);
+long linear2rgb(double linear);
