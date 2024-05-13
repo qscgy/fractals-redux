@@ -3,25 +3,30 @@
 #include <cmath>
 #include <string>
 
+Colormap::Colormap(){};
+
 Colormap::Colormap(const std::string &cmapStr)
 {
   cmap_vals = palettes.at(cmapStr).data();
   nvals = (int)(palettes.at(cmapStr).size());
-  double hsv[nvals][3];
+
+  hsv_vals = new double *[nvals];
   double rgb_n[3];
   for (int i = 0; i < nvals; i++)
   {
     for (int c = 0; c < 3; c++)
     {
-      rgb_n[2-c] = (cmap_vals[i] >> (c*8)) & 0xFF;
+      rgb_n[2 - c] = (cmap_vals[i] >> (c * 8)) & 0xFF;
     }
-    rgb2hsv(rgb_n, hsv[i]);
-    hsv_vals[i] = hsv[i];
+    // hsv_vals[i]
+    hsv_vals[i] = new double[3];
+    rgb2hsv(rgb_n, hsv_vals[i]);
+    // hsv_vals[i] = hsv[i];
   }
-  // hsv_vals = hsv;
+  // hsv_vals = &hsv;
 }
 
-long interp_color(const colormap &cmap, const double val, const double min, const double max)
+long interp_color(const Colormap &cmap, const double val, const double min, const double max)
 {
   const long *cmap_vals = cmap.cmap_vals;
   double nvals = cmap.nvals;
@@ -33,8 +38,11 @@ long interp_color(const colormap &cmap, const double val, const double min, cons
   double sval = (val - min) / (max - min);
 
   double lower, upper, subscaled;
-  double rgb[3];
+  double rgb[3], hsv[3];
   unsigned char l, u;
+  double lf, uf;
+  double *ld;
+  double *ud;
   for (int i = 0; i < nvals - 1; i++)
   {
     lower = ((double)i) / nvals;
@@ -46,13 +54,21 @@ long interp_color(const colormap &cmap, const double val, const double min, cons
       {
         l = (*(cmap_vals + i) >> (c * 8)) & 0xFF;
         u = (*(cmap_vals + i + 1) >> (c * 8)) & 0xFF;
-        // l = rgb2linear(l);
-        // u = rgb2linear(u);
-        rgb[2 - c] = ((double)(u - l)) * subscaled + ((double)l);
+        // rgb[2 - c] = ((double)(u - l)) * subscaled + ((double)l);
+        lf = rgb2linear(l);
+        uf = rgb2linear(u);
+        rgb[2 - c] = (uf - lf) * subscaled + lf;
       }
 
-      long retval = (std::lround(rgb[0]) << 16) + (std::lround(rgb[1]) << 8) + std::lround(rgb[2]);
-      // long retval = (linear2rgb(rgb[0])<<16) + (linear2rgb(rgb[1])<<8 )+ linear2rgb(rgb[2]);
+      // ld = *(cmap.hsv_vals + i);
+      // ud = *(cmap.hsv_vals + i + 1);
+      // hsv[0] = ((*ud) - (*ld))*subscaled + (*ld);
+      // hsv[1] = (*(ud + 1) - *(ld + 1)) * subscaled + *(ld + 1);
+      // hsv[2] = (*(ud + 2) - *(ld + 2)) * subscaled + *(ld + 2);
+      // hsv2rgb(hsv, rgb);
+
+      // long retval = (std::lround(rgb[0]) << 16) + (std::lround(rgb[1]) << 8) + std::lround(rgb[2]);
+      long retval = (linear2rgb(rgb[0]) << 16) + (linear2rgb(rgb[1]) << 8) + linear2rgb(rgb[2]);
       return retval;
     }
   }
@@ -154,7 +170,7 @@ long linear2rgb(double linear)
   return std::lround(s * 255);
 }
 
-long interp_color(const colormap &cmap, const double val)
+long interp_color(const Colormap &cmap, const double val)
 {
   return interp_color(cmap, val, 0, 1);
 }

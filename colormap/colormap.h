@@ -51,6 +51,7 @@ class Colormap {
     const long* cmap_vals;
     double** hsv_vals;
     int nvals;
+    Colormap();
     Colormap(const std::string& cmapStr);
 };
 
@@ -75,8 +76,8 @@ const int MAGMA2 = 4;
 const long magma2 [5] = {0x000004,0x51127c,0xb73779,0xfc8961,0xfcfdbf};
 const int magma2_len = 5;
 
-long interp_color(const colormap& cmap, const double val, const double min, const double max);
-long interp_color(const colormap& cmap, const double val);
+long interp_color(const Colormap& cmap, const double val, const double min, const double max);
+long interp_color(const Colormap& cmap, const double val);
 
 void rgb2hsv(const double rgb[3], double hsv[3]);
 void hsv2rgb(const double hsv[3], double rgb[3]);

@@ -12,10 +12,11 @@
 #include <algorithm>
 #include <cmath>
 
-#define N_ITER 380
+#define N_ITER 400
 #define FRACTAL_MANDELBROT 1
 #define FRACTAL_JULIA 2
 #define FRACTAL_BURNINGSHIP 3
+#define FRACTAL_MULTIJULIA 4
 
 // using namespace std;
 
@@ -50,8 +51,9 @@ class Fractal {
     double homeParams[5];
     int topLeft[2], lowerRight[2];
     bool onSecondClick;
-    colormap cmap;
+    Colormap cmap;
     double c_real, c_imag;
+    double order_n;
     std::vector<double> xs, ys;
     cv::Mat escapetime;
     cv::Mat imageR;
@@ -136,6 +138,8 @@ Fractal::Fractal(const std::string& conffile){
       formula=FRACTAL_JULIA;
     } else if(formulaStr=="burningship"){
       formula=FRACTAL_BURNINGSHIP;
+    } else if(formulaStr=="multijulia") {
+      formula=FRACTAL_MULTIJULIA;
     } else {
       std::cerr << "The formula " << formulaStr << " is not a valid option.\n";
     }
@@ -149,7 +153,8 @@ Fractal::Fractal(const std::string& conffile){
       cmapStr="grayscale";
     } // else, cmapStr is already set to a value that is in palettes
   }
-  cmap = {palettes.at(cmapStr).data(), (int)(palettes.at(cmapStr).size())};
+  // cmap = {palettes.at(cmapStr).data(), (int)(palettes.at(cmapStr).size())};
+  cmap = Colormap(cmapStr);
 
   // read in the rest of the fields
   readFromConf(config, "res", &res);
@@ -163,12 +168,19 @@ Fractal::Fractal(const std::string& conffile){
   homeParams[3] = ymax;
   homeParams[4] = res;
 
-  if((formula==FRACTAL_JULIA && config.find("c_real")!=config.end() && config.find("c_imag")!=config.end())){
+  if(((formula==FRACTAL_JULIA || formula==FRACTAL_MULTIJULIA) && config.find("c_real")!=config.end() && config.find("c_imag")!=config.end())){
     readFromConf(config, "c_real", &c_real);
     readFromConf(config, "c_imag", &c_imag);
   } else if(formula==FRACTAL_JULIA){
     std::cerr << "Must provide both c_real and c_imag for formula 'julia'." << std::endl;
     exit(1);
+  } 
+  if(formula==FRACTAL_MULTIJULIA){
+    if(config.find("order") != config.end()){
+      readFromConf(config, "order", &order_n);
+    } else {
+      order_n = 2;
+    }
   }
 
   otherInit();
@@ -179,6 +191,7 @@ Fractal::Fractal(const std::string& conffile){
   double atmp, nf;
   long colorval;
   double* ptr;
+  const double nOver2 = order_n / 2.0;
   for(int j=0; j<height; j++){
     ptr = escapetime.ptr<double>(j);
     for(int i=0; i<width; i++){
@@ -209,6 +222,15 @@ Fractal::Fractal(const std::string& conffile){
           atmp = a*a - b*b + c_real;
           b = (a+a)*b + c_imag;
           a = atmp;
+          n++;
+        }
+      } else if(formula==FRACTAL_MULTIJULIA){
+        a=xs.at(i);
+        b=ys.at(j);
+        while(a*a+b*b<4 && n<=n_iter){
+          atmp = pow((a * a + b * b), nOver2) * cos(order_n * atan2(b, a)) + c_real;
+	        b = pow((a * a + b * b), nOver2) * sin(order_n * atan2(b, a)) + c_imag;
+	        a = atmp;
           n++;
         }
       }
